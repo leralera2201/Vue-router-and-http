@@ -8,7 +8,7 @@
                 <button type="button" v-if="isUpdate" class="btn btn-dark ml-1" @click="cancel()">Cancel</button>
             </div>
         </form>
-        <h5 class="card-title mt-4 ml-3" v-if="!todos.length">There are no todos. Please, add some</h5>
+        <h5 class="card-title mt-4 ml-3" v-if="!todosLength">There are no todos. Please, add some</h5>
         <ul class="list-group mt-5" v-for="todo in todos" :key="todo.id">
             <li class="list-group-item d-flex justify-content-between align-items-center">
                 {{todo.title}}
@@ -24,7 +24,11 @@
 </template>
 
 <script>
+    import {todosModule} from "../store/todos/todos";
+    import {ADD_TODO, DELETE_TODO, GET_TODOS, GET_TODOS_GETTER, TODOS_LENGTH, UPDATE_TODO} from "../store/todos/types";
+    import {createNamespacedHelpers} from "vuex";
 
+    const {mapActions, mapGetters} = createNamespacedHelpers(todosModule)
     export default {
         name: 'Projects',
         components: {
@@ -33,7 +37,6 @@
 
         data(){
             return {
-                todos: [],
                 title: '',
                 isUpdate: false,
                 id: ''
@@ -43,33 +46,32 @@
         beforeMount() {
             this.getTodos()
         },
+        computed: {
+            ...mapGetters({
+                todosLength: TODOS_LENGTH,
+                todos: GET_TODOS_GETTER
+            })
+        },
 
         methods: {
-            getTodos(){
-                this.$http.get('todos.json')
-                    .then(res => res.json())
-                    .then(data => {
-                        for(let key in data){
-                            this.todos.push({id: key, ...data[key]})
-                        }
-                    })
+
+            ...mapActions({
+                addTodo: ADD_TODO,
+                getTodosList: GET_TODOS,
+                dropTodo: DELETE_TODO,
+                putTodo: UPDATE_TODO
+            }),
+
+            async getTodos(){
+               await this.getTodosList()
             },
-            deleteTodo(id) {
-                this.$http.delete(`todos/${id}.json`)
-                .then(() => {
-                    this.todos = this.todos.filter(todo => todo.id !== id)
-                })
-                .catch(err => console.log(err))
+            async deleteTodo(id) {
+                await this.dropTodo(id)
             },
 
-            createTodo() {
-                this.$http.post('todos.json', {title: this.title})
-                    .then((res) => {
-                       this.todos.push({id: res.body.name, title: this.title})
-                        this.title = ''
-                    })
-                .catch(err => console.log(err))
-
+            async createTodo() {
+                await this.addTodo({title: this.title})
+                this.title = ''
             },
             setUpdateTodo(todo) {
                 this.isUpdate = true
@@ -77,19 +79,10 @@
                 this.id = todo.id
             },
 
-            updateTodo(id){
-                this.$http.put(`todos/${id}.json`, {title: this.title})
-                    .then(() => {
-                        this.todos = this.todos.map(todo => {
-                            if(todo.id === id){
-                                todo.title = this.title
-                            }
-                            return todo
-                        })
-                        this.title = ''
-                    })
-                    .catch(err => console.log(err))
+            async updateTodo(id){
+                await this.putTodo({id: id, title: this.title})
                 this.isUpdate = false
+                this.title=''
             },
 
             cancel(){
